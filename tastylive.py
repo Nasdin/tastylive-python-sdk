@@ -94,6 +94,22 @@ class Orders:
         self.extrinsic_value = float(self.extrinsic_value) if self.extrinsic_value else None
         self.tos_iv_rank = float(self.tos_iv_rank)
 
+    def is_roll(self) -> bool:
+        actions = [leg.action for leg in self.order_legs]
+        return ("selltoopen" in actions and "buytoclose" in actions)
+
+    def is_strike_price_change_roll(self) -> bool:
+        if not self.is_roll():
+            return False
+        strike_prices = set(leg.strike_price for leg in self.order_legs)
+        return len(strike_prices) > 1
+
+    def is_expiration_date_change_roll(self) -> bool:
+        if not self.is_roll():
+            return False
+        expiration_dates = set(leg.expiration_date for leg in self.order_legs)
+        return len(expiration_dates) > 1
+
     def has_days_to_expiration_less_than_or_equal_to(self, days: int) -> bool:
         return all(
             leg.has_days_to_expiration_less_than_or_equal_to(days)
