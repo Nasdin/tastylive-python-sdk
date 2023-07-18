@@ -49,8 +49,15 @@ class Orders:
     comments: List[str]
 
 class PublicOrders:
-    def __init__(self, orders_data):
-        self.public_orders = [Orders.from_dict(order) for order in orders_data['public_orders']]
+    def __init__(self, orders_data, filter_funcs=None):
+        if filter_funcs is None:
+            self.public_orders = [Orders.from_dict(order) for order in orders_data['public_orders']]
+        else:
+            self.public_orders = [
+                Orders.from_dict(order)
+                for order in orders_data['public_orders']
+                if all(filter_func(order) for filter_func in filter_funcs)
+            ]
 
 
 class Filter:
@@ -156,8 +163,8 @@ class PublicOrdersAPI:
     def construct_url(self):
         return self.BASE_URL + '&'.join(self.query_params)
 
-    def get_public_orders(self):
+    def get_public_orders(self, filter_funcs=None):
         url = self.construct_url()
         response = requests.get(url)
-        response.raise_for_status()  # Raise an exception if the request failed
-        return PublicOrders(response.json())
+        response.raise_for_status()
+        return PublicOrders(response.json(), filter_funcs)
