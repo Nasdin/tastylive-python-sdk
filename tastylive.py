@@ -1,50 +1,56 @@
 import urllib.parse
 import typing
+from dataclasses import dataclass
+from dataclasses_json import dataclass_json
+from typing import List, Optional
 
+
+@dataclass_json
+@dataclass
 class OrderLeg:
-    def __init__(self, order_leg_data):
-        self.id = order_leg_data['id']
-        self.symbol = order_leg_data['symbol']
-        self.action = order_leg_data['action']
-        self.quantity = order_leg_data['quantity']
-        self.asset_type = order_leg_data['asset_type']
-        self.leg_price = order_leg_data['leg_price']
-        self.leg_price_string = order_leg_data['leg_price_string']
-        self.underlying_symbol = order_leg_data['underlying_symbol']
-        self.expiration_date = order_leg_data['expiration_date']
-        self.strike_price = order_leg_data['strike_price']
-        self.call_or_put = order_leg_data['call_or_put']
-        self.open_close = order_leg_data['open_close']
+    id: int
+    symbol: str
+    action: str
+    quantity: str
+    asset_type: str
+    leg_price: Optional[str]
+    leg_price_string: Optional[str]
+    underlying_symbol: str
+    expiration_date: str
+    strike_price: str
+    call_or_put: str
+    open_close: str
 
+@dataclass_json
+@dataclass
 class Orders:
-    def __init__(self, order_data):
-        self.id = order_data['id']
-        self.expiration = order_data['expiration']
-        self.exp_date = order_data['exp_date']
-        self.order_type = order_data['order_type']
-        self.price = order_data['price']
-        self.price_string = order_data['price_string']
-        self.strategy = order_data['strategy']
-        self.reason = order_data['reason']
-        self.executed_at = order_data['executed_at']
-        self.filled_at = order_data['filled_at']
-        self.probability_of_profit = order_data['probability_of_profit']
-        self.return_on_capital = order_data['return_on_capital']
-        self.underlying_price = order_data['underlying_price']
-        self.underlying_price_string = order_data['underlying_price_string']
-        self.placed_at = order_data['placed_at']
-        self.trader_id = order_data['trader_id']
-        self.extrinsic_value = order_data['extrinsic_value']
-        self.is_earnings_play = order_data['is_earnings_play']
-        self.is_hedge = order_data['is_hedge']
-        self.is_scalp_trade = order_data['is_scalp_trade']
-        self.tos_iv_rank = order_data['tos_iv_rank']
-        self.order_legs = [OrderLeg(leg) for leg in order_data['order_legs']]
-        self.comments = order_data['comments']
+    id: int
+    expiration: str
+    exp_date: Optional[str]
+    order_type: str
+    price: str
+    price_string: str
+    strategy: str
+    reason: Optional[str]
+    executed_at: str
+    filled_at: str
+    probability_of_profit: str
+    return_on_capital: Optional[str]
+    underlying_price: str
+    underlying_price_string: str
+    placed_at: str
+    trader_id: int
+    extrinsic_value: Optional[str]
+    is_earnings_play: Optional[str]
+    is_hedge: bool
+    is_scalp_trade: Optional[str]
+    tos_iv_rank: str
+    order_legs: List[OrderLeg]
+    comments: List[str]
 
 class PublicOrders:
     def __init__(self, orders_data):
-        self.public_orders = [Orders(order) for order in orders_data['public_orders']]
+        self.public_orders = [Orders.from_dict(order) for order in orders_data['public_orders']]
 
 
 class Filter:
