@@ -54,10 +54,6 @@ class OrderLeg:
     def is_put(self) -> bool:
         return self.call_or_put == 'P'
 
-    def trade_age(self) -> timedelta:
-        placed_at = datetime.fromisoformat(self.placed_at)
-        current_time = datetime.now()
-        return current_time - placed_at
 
 @dataclass_json
 @dataclass
