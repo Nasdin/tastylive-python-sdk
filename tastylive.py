@@ -48,12 +48,17 @@ class PublicOrders:
 
 
 class Filter:
-    def __init__(self, value, prefix):
+    def __init__(self, value, prefix, value2=None, prefix2=None):
         self.value = value
         self.prefix = prefix
+        self.value2 = value2
+        self.prefix2 = prefix2
 
     def get_query_param(self):
-        return self.prefix + urllib.parse.quote_plus(self.value)
+        param = self.prefix + urllib.parse.quote_plus(self.value)
+        if self.value2 is not None:
+            param += '&' + self.prefix2 + urllib.parse.quote_plus(self.value2)
+        return param
 
 
 class StringFilter(Filter):
@@ -105,13 +110,8 @@ class Trader(StringFilter):
 
 class DateRange(Filter):
     def __init__(self, from_date, to_date):
-        self.from_date = from_date
-        self.to_date = to_date
+        super().__init__(from_date.isoformat(), 'attrs%5Bdate_range%5D%5Bfrom%5D=', to_date.isoformat(), 'attrs%5Bdate_range%5D%5Bto%5D=')
 
-    def get_query_param(self):
-        from_date_str = urllib.parse.quote_plus(self.from_date.isoformat())
-        to_date_str = urllib.parse.quote_plus(self.to_date.isoformat())
-        return f'attrs%5Bdate_range%5D%5Bfrom%5D={from_date_str}&attrs%5Bdate_range%5D%5Bto%5D={to_date_str}'
 
 class Strategy(StringFilter):
     SUPPORTED_VALUES = [
