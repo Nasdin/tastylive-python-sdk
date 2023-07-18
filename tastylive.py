@@ -21,6 +21,41 @@ class OrderLeg:
     call_or_put: str
     open_close: str
 
+    def __post_init__(self):
+        self.quantity = float(self.quantity)
+        self.leg_price = float(self.leg_price) if self.leg_price else None
+        self.expiration_date = datetime.strptime(self.expiration_date, "%Y-%m-%d")
+        self.strike_price = float(self.strike_price)
+
+    def is_open(self) -> bool:
+        return self.open_close == 'O'
+
+    def is_close(self) -> bool:
+        return self.open_close == 'C'
+
+    def has_days_to_expiration_less_than_or_equal_to(self, days: int) -> bool:
+        today = datetime.now().date()
+        expiration = self.expiration_date.date()
+        days_to_expiration = (expiration - today).days
+        return days_to_expiration <= days
+
+    def has_days_to_expiration_greater_than_or_equal_to(self, days: int) -> bool:
+        today = datetime.now().date()
+        expiration = self.expiration_date.date()
+        days_to_expiration = (expiration - today).days
+        return days_to_expiration >= days
+
+    def is_call(self) -> bool:
+        return self.call_or_put == 'C'
+
+    def is_put(self) -> bool:
+        return self.call_or_put == 'P'
+
+    def trade_age(self) -> timedelta:
+        placed_at = datetime.fromisoformat(self.placed_at)
+        current_time = datetime.now()
+        return current_time - placed_at
+
 @dataclass_json
 @dataclass
 class Orders:
@@ -47,6 +82,40 @@ class Orders:
     tos_iv_rank: str
     order_legs: List[OrderLeg]
     comments: List[str]
+
+    def __post_init__(self):
+        self.price = float(self.price)
+        self.executed_at = datetime.fromisoformat(self.executed_at)
+        self.filled_at = datetime.fromisoformat(self.filled_at)
+        self.probability_of_profit = float(self.probability_of_profit)
+        self.return_on_capital = float(self.return_on_capital) if self.return_on_capital else None
+        self.underlying_price = float(self.underlying_price)
+        self.placed_at = datetime.fromisoformat(self.placed_at)
+        self.extrinsic_value = float(self.extrinsic_value) if self.extrinsic_value else None
+        self.tos_iv_rank = float(self.tos_iv_rank)
+
+    def has_days_to_expiration_less_than_or_equal_to(self, days: int) -> bool:
+        return all(
+            leg.has_days_to_expiration_less_than_or_equal_to(days)
+            for leg in self.order_legs
+        )
+
+    def has_days_to_expiration_greater_than_or_equal_to(self, days: int) -> bool:
+        return all(
+            leg.has_days_to_expiration_greater_than_or_equal_to(days)
+            for leg in self.order_legs
+        )
+
+    def is_all_call(self) -> bool:
+        return all(leg.is_call() for leg in self.order_legs)
+
+    def is_all_put(self) -> bool:
+        return all(leg.is_put() for leg in self.order_legs)
+
+    def trade_age(self) -> timedelta:
+        placed_at = datetime.fromisoformat(self.placed_at)
+        current_time = datetime.now()
+        return current_time - placed_at
 
 class PublicOrders:
     def __init__(self, orders_data, filter_funcs=None):
