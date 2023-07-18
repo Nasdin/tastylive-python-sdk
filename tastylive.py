@@ -152,6 +152,6 @@ class PublicOrdersAPI:
 
     def get_public_orders(self):
         url = self.construct_url()
-        # Here is where you would normally send a GET request to the URL.
-        # But in this AI environment, we're just going to return the URL.
-        return url
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception if the request failed
+        return PublicOrders(response.json())
