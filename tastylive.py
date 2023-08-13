@@ -2,13 +2,10 @@ import requests
 import urllib.parse
 import typing
 from dataclasses import dataclass
-from dataclasses_json import dataclass_json
 from typing import List, Optional
 from datetime import datetime, timedelta
 
 
-
-@dataclass_json
 @dataclass
 class OrderLeg:
     id: int
@@ -55,7 +52,6 @@ class OrderLeg:
         return self.call_or_put == 'P'
 
 
-@dataclass_json
 @dataclass
 class Orders:
     id: int
@@ -84,12 +80,12 @@ class Orders:
 
     def __post_init__(self):
         self.price = float(self.price)
-        self.executed_at = datetime.fromisoformat(self.executed_at)
-        self.filled_at = datetime.fromisoformat(self.filled_at)
+        self.executed_at = datetime.strptime(self.executed_at, '%Y-%m-%dT%H:%M:%SZ')
+        self.filled_at = datetime.strptime(self.filled_at, '%Y-%m-%dT%H:%M:%SZ')
         self.probability_of_profit = float(self.probability_of_profit)
         self.return_on_capital = float(self.return_on_capital) if self.return_on_capital else None
         self.underlying_price = float(self.underlying_price)
-        self.placed_at = datetime.fromisoformat(self.placed_at)
+        self.placed_at = datetime.strptime(self.placed_at, '%Y-%m-%dT%H:%M:%SZ')
         self.extrinsic_value = float(self.extrinsic_value) if self.extrinsic_value else None
         self.tos_iv_rank = float(self.tos_iv_rank)
 
@@ -128,20 +124,71 @@ class Orders:
         return all(leg.is_put() for leg in self.order_legs)
 
     def trade_age(self) -> timedelta:
-        placed_at = datetime.fromisoformat(self.placed_at)
+        placed_at = datetime.strptime(self.placed_at, '%Y-%m-%dT%H:%M:%SZ')
         current_time = datetime.now()
         return current_time - placed_at
 
 class PublicOrders:
     def __init__(self, orders_data, filter_funcs=None):
         if filter_funcs is None:
-            self.public_orders = [Orders.from_dict(order) for order in orders_data['public_orders']]
+            self.public_orders = [Orders(
+                id=order["id"],
+                expiration=order["expiration"],
+                exp_date=order["exp_date"],
+                order_type=order["order_type"],
+                price=order["price"],
+                price_string=order["price_string"],
+                strategy=order["strategy"],
+                reason=order["reason"],
+                executed_at=order["executed_at"],
+                filled_at=order["filled_at"],
+                probability_of_profit=order["probability_of_profit"],
+                return_on_capital=order["return_on_capital"],
+                underlying_price=order["underlying_price"],
+                underlying_price_string=order["underlying_price_string"],
+                placed_at=order["placed_at"],
+                trader_id=order["trader_id"],
+                extrinsic_value=order["extrinsic_value"],
+                is_earnings_play=order["is_earnings_play"],
+                is_hedge=order["is_hedge"],
+                is_scalp_trade=order["is_scalp_trade"],
+                tos_iv_rank=order["tos_iv_rank"],
+                order_legs=order["order_legs"],
+                comments=order["comments"]
+            )
+     for order in orders_data['public_orders']]
         else:
-            self.public_orders = [
-                Orders.from_dict(order)
-                for order in orders_data['public_orders']
-                if all(filter_func(order) for filter_func in filter_funcs)
-            ]
+                self.public_orders = [
+                    Orders(
+        id=order["id"],
+        expiration=order["expiration"],
+        exp_date=order["exp_date"],
+        order_type=order["order_type"],
+        price=order["price"],
+        price_string=order["price_string"],
+        strategy=order["strategy"],
+        reason=order["reason"],
+        executed_at=order["executed_at"],
+        filled_at=order["filled_at"],
+        probability_of_profit=order["probability_of_profit"],
+        return_on_capital=order["return_on_capital"],
+        underlying_price=order["underlying_price"],
+        underlying_price_string=order["underlying_price_string"],
+        placed_at=order["placed_at"],
+        trader_id=order["trader_id"],
+        extrinsic_value=order["extrinsic_value"],
+        is_earnings_play=order["is_earnings_play"],
+        is_hedge=order["is_hedge"],
+        is_scalp_trade=order["is_scalp_trade"],
+        tos_iv_rank=order["tos_iv_rank"],
+        order_legs=order["order_legs"],
+        comments=order["comments"]
+    )
+                    for order in orders_data['public_orders']
+                    if all(filter_func(order) for filter_func in filter_funcs)
+                ]
+    def __repr__(self):
+        return str(self.public_orders)
 
 
 class Filter:
@@ -230,7 +277,7 @@ class Strategy(StringFilter):
         super().__init__(strategy, 'strategy=')
 
 
-class Symbol(StringFilter):
+class Symbol(Filter):
     def __init__(self, symbol):
         super().__init__(symbol, 'underlying_symbols%5B%5D=')
 
