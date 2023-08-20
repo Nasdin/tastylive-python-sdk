@@ -11,10 +11,7 @@ def insert_orders_into_boto3(orders: List[Orders]):
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table('tastylive')
 
-
-
     for order in orders:
-
         # Insert into the table where partition key is order_id and sort key is trader_id
         insertion_list = [
             create_attribute_if_not_none('order_id', int, order.id),
