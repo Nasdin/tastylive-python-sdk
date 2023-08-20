@@ -1,9 +1,16 @@
-import requests
 import urllib.parse
-import typing
-from dataclasses import dataclass
-from typing import List, Optional
+from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
+import time
+from decimal import Decimal
+from typing import List, Optional
+
+import boto3
+import botocore.exceptions
+
+import requests
+
+"Version 1"
 
 
 @dataclass
@@ -14,7 +21,6 @@ class OrderLeg:
     quantity: str
     asset_type: str
     leg_price: Optional[str]
-    leg_price_string: Optional[str]
     underlying_symbol: str
     expiration_date: str
     strike_price: str
@@ -22,10 +28,10 @@ class OrderLeg:
     open_close: str
 
     def __post_init__(self):
-        self.quantity = float(self.quantity)
-        self.leg_price = float(self.leg_price) if self.leg_price else None
-        self.expiration_date = datetime.strptime(self.expiration_date, "%Y-%m-%d")
-        self.strike_price = float(self.strike_price)
+        self.quantity: Decimal = Decimal(self.quantity) if self.quantity else None
+        self.leg_price = Decimal(self.leg_price) if self.leg_price else None
+        self.expiration_date: datetime = datetime.strptime(self.expiration_date, "%Y-%m-%d") if self.expiration_date else None
+        self.strike_price: Decimal = Decimal(self.strike_price) if self.strike_price else None
 
     def is_open(self) -> bool:
         return self.open_close == 'O'
@@ -51,6 +57,17 @@ class OrderLeg:
     def is_put(self) -> bool:
         return self.call_or_put == 'P'
 
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        a = {k: v for k, v in d.items() if v is not None}
+        a["expiration_date"] = datetime.strftime(self.expiration_date, '%Y-%m-%d %H:%M:%S') if self.expiration_date else ""
+        a["is_open"] = self.is_open()
+        a["is_close"] = self.is_close()
+        a["is_call"] = self.is_call()
+        a["is_put"] = self.is_put()
+
+        return a
+
 
 @dataclass
 class Orders:
@@ -75,19 +92,32 @@ class Orders:
     is_hedge: bool
     is_scalp_trade: Optional[str]
     tos_iv_rank: str
-    order_legs: List[OrderLeg]
+    order_legs: List[dict]
     comments: List[str]
 
     def __post_init__(self):
-        self.price = float(self.price)
-        self.executed_at = datetime.strptime(self.executed_at, '%Y-%m-%dT%H:%M:%SZ')
-        self.filled_at = datetime.strptime(self.filled_at, '%Y-%m-%dT%H:%M:%SZ')
-        self.probability_of_profit = float(self.probability_of_profit)
-        self.return_on_capital = float(self.return_on_capital) if self.return_on_capital else None
-        self.underlying_price = float(self.underlying_price)
-        self.placed_at = datetime.strptime(self.placed_at, '%Y-%m-%dT%H:%M:%SZ')
-        self.extrinsic_value = float(self.extrinsic_value) if self.extrinsic_value else None
-        self.tos_iv_rank = float(self.tos_iv_rank)
+        self.price: Decimal = Decimal(self.price)
+        self.executed_at: datetime = datetime.strptime(self.executed_at, '%Y-%m-%dT%H:%M:%SZ')
+        self.filled_at: datetime = datetime.strptime(self.filled_at, '%Y-%m-%dT%H:%M:%SZ')
+        self.probability_of_profit: Decimal = Decimal(self.probability_of_profit) if self.probability_of_profit else None
+        self.return_on_capital: Decimal = Decimal(self.return_on_capital) if self.return_on_capital else None
+        self.underlying_price: Decimal = Decimal(self.underlying_price) if self.underlying_price else None
+        self.placed_at: datetime = datetime.strptime(self.placed_at, '%Y-%m-%dT%H:%M:%SZ')
+        self.extrinsic_value: Decimal = Decimal(self.extrinsic_value) if self.extrinsic_value else None
+        self.tos_iv_rank: Decimal = Decimal(self.tos_iv_rank) if self.tos_iv_rank else None
+        self.order_legs: List[OrderLeg] = [OrderLeg(
+            id=order_leg["id"],
+            symbol=order_leg["symbol"],
+            action=order_leg["action"],
+            quantity=order_leg["quantity"],
+            asset_type=order_leg["asset_type"],
+            leg_price=order_leg["leg_price"],
+            underlying_symbol=order_leg["underlying_symbol"],
+            expiration_date=order_leg["expiration_date"],
+            strike_price=order_leg["strike_price"],
+            call_or_put=order_leg["call_or_put"],
+            open_close=order_leg["open_close"]
+        ) for order_leg in self.order_legs]
 
     def is_roll(self) -> bool:
         actions = [leg.action for leg in self.order_legs]
@@ -124,9 +154,9 @@ class Orders:
         return all(leg.is_put() for leg in self.order_legs)
 
     def trade_age(self) -> timedelta:
-        placed_at = datetime.strptime(self.placed_at, '%Y-%m-%dT%H:%M:%SZ')
         current_time = datetime.now()
-        return current_time - placed_at
+        return current_time - self.placed_at
+
 
 class PublicOrders:
     def __init__(self, orders_data, filter_funcs=None):
@@ -156,37 +186,38 @@ class PublicOrders:
                 order_legs=order["order_legs"],
                 comments=order["comments"]
             )
-     for order in orders_data['public_orders']]
+                for order in orders_data['public_orders']]
         else:
-                self.public_orders = [
-                    Orders(
-        id=order["id"],
-        expiration=order["expiration"],
-        exp_date=order["exp_date"],
-        order_type=order["order_type"],
-        price=order["price"],
-        price_string=order["price_string"],
-        strategy=order["strategy"],
-        reason=order["reason"],
-        executed_at=order["executed_at"],
-        filled_at=order["filled_at"],
-        probability_of_profit=order["probability_of_profit"],
-        return_on_capital=order["return_on_capital"],
-        underlying_price=order["underlying_price"],
-        underlying_price_string=order["underlying_price_string"],
-        placed_at=order["placed_at"],
-        trader_id=order["trader_id"],
-        extrinsic_value=order["extrinsic_value"],
-        is_earnings_play=order["is_earnings_play"],
-        is_hedge=order["is_hedge"],
-        is_scalp_trade=order["is_scalp_trade"],
-        tos_iv_rank=order["tos_iv_rank"],
-        order_legs=order["order_legs"],
-        comments=order["comments"]
-    )
-                    for order in orders_data['public_orders']
-                    if all(filter_func(order) for filter_func in filter_funcs)
-                ]
+            self.public_orders = [
+                Orders(
+                    id=order["id"],
+                    expiration=order["expiration"],
+                    exp_date=order["exp_date"],
+                    order_type=order["order_type"],
+                    price=order["price"],
+                    price_string=order["price_string"],
+                    strategy=order["strategy"],
+                    reason=order["reason"],
+                    executed_at=order["executed_at"],
+                    filled_at=order["filled_at"],
+                    probability_of_profit=order["probability_of_profit"],
+                    return_on_capital=order["return_on_capital"],
+                    underlying_price=order["underlying_price"],
+                    underlying_price_string=order["underlying_price_string"],
+                    placed_at=order["placed_at"],
+                    trader_id=order["trader_id"],
+                    extrinsic_value=order["extrinsic_value"],
+                    is_earnings_play=order["is_earnings_play"],
+                    is_hedge=order["is_hedge"],
+                    is_scalp_trade=order["is_scalp_trade"],
+                    tos_iv_rank=order["tos_iv_rank"],
+                    order_legs=order["order_legs"],
+                    comments=order["comments"]
+                )
+                for order in orders_data['public_orders']
+                if all(filter_func(order) for filter_func in filter_funcs)
+            ]
+
     def __repr__(self):
         return str(self.public_orders)
 
@@ -254,7 +285,8 @@ class Trader(StringFilter):
 
 class DateRange(Filter):
     def __init__(self, from_date, to_date):
-        super().__init__(from_date.isoformat(), 'attrs%5Bdate_range%5D%5Bfrom%5D=', to_date.isoformat(), 'attrs%5Bdate_range%5D%5Bto%5D=')
+        super().__init__(from_date.isoformat(), 'attrs%5Bdate_range%5D%5Bfrom%5D=', to_date.isoformat(),
+                         'attrs%5Bdate_range%5D%5Bto%5D=')
 
 
 class Strategy(StringFilter):
