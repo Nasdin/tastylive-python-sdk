@@ -1,13 +1,8 @@
 import urllib.parse
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
-import time
 from decimal import Decimal
 from typing import List, Optional
-
-import boto3
-import botocore.exceptions
-
 import requests
 
 "Version 1"
